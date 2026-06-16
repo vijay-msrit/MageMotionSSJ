@@ -37,13 +37,25 @@ print("AI model loaded successfully")
 # COMPONENTS
 # =========================================
 
-tracker = HandTracker()
 
 controller = GamepadController()
 
 cap = cv2.VideoCapture(0)
 
+if not cap.isOpened():
+    print(
+        "\n[ERROR] Could not open webcam (index 0).\n"
+        "Possible causes:\n"
+        "  • No webcam connected\n"
+        "  • Webcam already in use by another application\n"
+        "  • Camera permission denied (check OS privacy settings)\n"
+        "  • Wrong camera index (try --camera 1, 2, ...)\n"
+        "\nExiting."
+    )
+    raise SystemExit(1)
+
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # =========================================
@@ -126,11 +138,16 @@ while True:
     ret, frame = cap.read()
 
     if not ret:
+
+    ret, frame = cap.read()
+
+    if not ret:
+        print(
+            "\n[WARNING] Failed to read frame from webcam.\n"
+            "The camera may have been disconnected or encountered an error.\n"
+            "Exiting."
+        )
         break
-
-    processed_frame, hands_data = tracker.process_frame(frame)
-
-    # =====================================
     # DEFAULT VALUES
     # =====================================
 

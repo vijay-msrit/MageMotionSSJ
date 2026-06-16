@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import numpy as np
 from collections import deque
 
@@ -88,11 +89,18 @@ STABILIZER_STRENGTH = 0.55
 # MODE
 # =========================================
 
-assist_mode = False
-
-# =========================================
 # SEQUENCE BUFFER
 # =========================================
+
+# =========================================
+# PERFORMANCE METRICS
+# =========================================
+
+prev_frame_time = 0.0
+inference_latency_ms = 0.0
+
+sequence_buffer = deque(maxlen=SEQUENCE_LENGTH)
+
 
 sequence_buffer = deque(maxlen=SEQUENCE_LENGTH)
 
@@ -121,12 +129,14 @@ def is_fist(hand):
 # MAIN LOOP
 # =========================================
 
+
 while True:
+
+    frame_start = time.perf_counter()
 
     ret, frame = cap.read()
 
     if not ret:
-        break
 
     processed_frame, hands_data = tracker.process_frame(frame)
 
@@ -248,12 +258,14 @@ while True:
     ai_throttle = throttle
     ai_brake = brake
 
+
     if len(sequence_buffer) == SEQUENCE_LENGTH:
+
+        infer_start = time.perf_counter()
 
         sequence = np.array(
             sequence_buffer,
             dtype=np.float32
-        )
 
         sequence = np.expand_dims(
             sequence,
@@ -263,13 +275,15 @@ while True:
         prediction = model.predict(
             sequence,
             verbose=0
+        prediction = model.predict(
+            sequence,
+            verbose=0
         )[0]
 
-        ai_steering = float(prediction[0])
-        ai_throttle = float(prediction[1])
-        ai_brake = float(prediction[2])
+        inference_latency_ms = (time.perf_counter() - infer_start) * 1000
 
-        # ---------------------------------
+        ai_steering = float(prediction[0])
+
         # Clamp predictions
         # ---------------------------------
 
@@ -375,6 +389,15 @@ while True:
     # =====================================
     # UI
     # =====================================
+
+    frame_end = time.perf_counter()
+    fps = 1.0 / max(frame_end - prev_frame_time, 1e-6)
+    prev_frame_time = frame_end
+
+    cv2.putText(processed_frame, f"FPS: {fps:.1f}", (20, 470),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(processed_frame, f"Infer: {inference_latency_ms:.1f}ms", (160, 470),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
 
     mode_text = (
         "AI ASSIST"
